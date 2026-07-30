@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+"use client";
 
 import {
   Background,
@@ -11,7 +11,7 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import { LoaderCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useFileSystem } from "../../hooks/use-file-system";
 import { useHasMounted } from "../../hooks/use-has-mounted";
 import { useSettingsStore } from "../../hooks/use-settings-store";
@@ -19,6 +19,7 @@ import { useSimulatorLogic } from "../../hooks/use-simulator-logic";
 import type { GateNodeProps } from "@gately/core/types";
 import { nodeTypes } from "../../node-types";
 import { Toolbar } from "./toolbar";
+import { PropertiesPanel } from "./properties-panel";
 
 export function SimulatorCanvas() {
   const hasMounted = useHasMounted();
@@ -27,10 +28,35 @@ export function SimulatorCanvas() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<GateNodeProps>>([]);
   const [edges, setEdges, _onEdgesChange] = useEdgesState<Edge>([]);
+  const [selectedNode, setSelectedNode] = useState<Node<GateNodeProps> | null>(null);
+  
   const { onConnectEdge, onNodeClick, onEdgesChangeWithSimulation, onDrop, onDragOver } = useSimulatorLogic(
     setNodes,
     setEdges,
   );
+
+  // Handler para atualizar propriedades do nó
+  const handleUpdateNode = useCallback((nodeId: string, data: Partial<GateNodeProps['data']>) => {
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                ...data,
+              },
+            }
+          : node
+      )
+    );
+  }, [setNodes]);
+
+  // Wrapper do onNodeClick para selecionar o nó
+  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node<GateNodeProps>) => {
+    setSelectedNode(node);
+    onNodeClick(node);
+  }, [onNodeClick]);
 
   // Auto-save current circuit when nodes or edges change
   useEffect(() => {
@@ -38,7 +64,7 @@ export function SimulatorCanvas() {
       const saveTimeout = setTimeout(() => {
         console.debug("Saving file", currentFileId);
         updateFileContent(currentFileId, { nodes, edges });
-      }, 1000); // Auto-save after 1 second of inactivity
+      }, 1000);
 
       return () => clearTimeout(saveTimeout);
     }
@@ -58,6 +84,11 @@ export function SimulatorCanvas() {
     }
   }, [currentFileId, ready, getCurrentFile, setEdges, setNodes]);
 
+  // Cleanup selection when clicking on the background
+  const handlePaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
   if (!hasMounted) {
     return (
       <div className="flex items-center justify-center w-full h-full text-xl text-muted-foreground">
@@ -67,28 +98,36 @@ export function SimulatorCanvas() {
   }
 
   return (
-    <div className="flex-1 h-full">
-      <ReactFlow<Node<GateNodeProps>, Edge>
-        className="bg-background"
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChangeWithSimulation}
-        onConnect={onConnectEdge}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        snapToGrid={settings.snapToGrid}
-        snapGrid={[20, 20]}
-        nodeTypes={nodeTypes}
-        onNodeClick={(_, node) => onNodeClick(node)}
-        fitView
-      >
-        <Panel position="top-left">
-          <Toolbar />
-        </Panel>
-        {settings.showMinimap && <MiniMap className="bg-card" />}
-        {settings.showGrid && <Background gap={12} size={1} />}
-      </ReactFlow>
+    <div className="flex-1 h-full flex">
+      <div className="flex-1">
+        <ReactFlow<Node<GateNodeProps>, Edge>
+          className="bg-background"
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChangeWithSimulation}
+          onConnect={onConnectEdge}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          snapToGrid={settings.snapToGrid}
+          snapGrid={[20, 20]}
+          nodeTypes={nodeTypes}
+          onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          fitView
+        >
+          <Panel position="top-left">
+            <Toolbar />
+          </Panel>
+          {settings.showMinimap && <MiniMap className="bg-card" />}
+          {settings.showGrid && <Background gap={12} size={1} />}
+        </ReactFlow>
+      </div>
+      
+      <PropertiesPanel
+        selectedNode={selectedNode}
+        onUpdateNode={handleUpdateNode}
+      />
     </div>
   );
 }

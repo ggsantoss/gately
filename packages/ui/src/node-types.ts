@@ -13,6 +13,7 @@ import { ToggleNode } from "./components/nodes/toggle";
 import { XNORGateNode } from "./components/nodes/xnor";
 import { XNOR3GateNode } from "./components/nodes/xnor3";
 import { XORGateNode } from "./components/nodes/xor";
+import { SplitterNode } from "./components/nodes/splitter";
 
 export const nodeTypes: NodeTypes = {
   toggleNode: ToggleNode,
@@ -29,4 +30,5 @@ export const nodeTypes: NodeTypes = {
   xnor3Gate: XNOR3GateNode,
   dmuxGate: DMUXGateNode,
   buffGate: BUFFGateNode,
+  splitterNode: SplitterNode
 };

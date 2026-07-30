@@ -194,6 +194,23 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
         result = inputs[0] ?? false;
         break;
 
+      case "splitterNode": {
+        const inputSignal = inputs[0] ?? false;
+        
+        updatedNodes[nodeIndex] = {
+          ...updatedNodes[nodeIndex],
+          data: {
+            ...updatedNodes[nodeIndex].data,
+            outputs: [inputSignal, inputSignal],
+            state: inputSignal,
+            inputs: inputs,
+          },
+        };
+
+        if (sourceHandle === "output-1") return inputSignal;
+        return inputSignal;
+      }
+
       default:
         result = false;
     }

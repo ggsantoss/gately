@@ -55,6 +55,7 @@ const sections = [
       { nodeType: "toggleNode", symbol: "=1", label: "Toggle Switch" },
       { nodeType: "pushNode", symbol: "=1", label: "Push Button" },
       { nodeType: "outputNode", symbol: "=>", label: "Output" },
+      { nodeType: "splitterNode", symbol: "SPLIT", label: "Splitter" }
     ],
   },
   {

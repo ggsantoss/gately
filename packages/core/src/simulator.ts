@@ -59,28 +59,23 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
     const evalSource = (e: { sourceId: string; sourceHandle: string | null }) =>
       evaluateNode(e.sourceId, e.sourceHandle, new Set(visited));
 
-    // Unified input collection function
     const collectInputs = (
       incoming: { sourceId: string; sourceHandle: string | null; targetHandle: string | null }[],
     ) => {
       const inputs: boolean[] = [];
 
-      // Collect all inputs by handle index
       incoming.forEach((edge) => {
         let handleIndex = 0;
 
         if (edge.targetHandle?.startsWith("input-")) {
-          // Standard format: "input-0", "input-1", etc.
           handleIndex = parseInt(edge.targetHandle.replace("input-", ""), 10);
         } else if (edge.targetHandle === "input") {
-          // Custom format: just "input" (for output nodes)
           handleIndex = 0;
         }
 
         inputs[handleIndex] = evalSource(edge);
       });
 
-      // Fill missing slots with false (unconnected inputs)
       return inputs.map((input) => input ?? false);
     };
 
@@ -121,6 +116,7 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
       case "xnor3Gate":
         result = inputs.filter(Boolean).length % 2 === 0;
         break;
+
       case "muxGate": {
         const A = inputs[0];
         const B = inputs[1];
@@ -128,6 +124,7 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
         result = S ? B : A;
         break;
       }
+
       case "dmuxGate": {
         const dataIn = inputs[0];
         const sel = inputs[1];
@@ -147,12 +144,13 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
         if (sourceHandle === "output-1") return Y1;
         return Y0;
       }
+
       case "halfAdder": {
         const A = inputs[0] ?? false;
         const B = inputs[1] ?? false;
 
-        const S = A !== B; // Soma (XOR)
-        const C = A && B; // Carry
+        const S = A !== B;
+        const C = A && B;
 
         updatedNodes[nodeIndex] = {
           ...updatedNodes[nodeIndex],
@@ -174,8 +172,8 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
         const Cin = inputs[2] ?? false;
 
         const sum3 = [A, B, Cin].filter(Boolean).length;
-        const S = sum3 % 2 === 1; // Sum
-        const Co = sum3 >= 2; // Carry out
+        const S = sum3 % 2 === 1;
+        const Co = sum3 >= 2;
 
         updatedNodes[nodeIndex] = {
           ...updatedNodes[nodeIndex],
@@ -190,24 +188,25 @@ export function calculateNodeStates(nodes: Node<GateNodeProps>[], edges: Edge[])
         if (sourceHandle === "output-1") return Co;
         return S;
       }
+
       case "outputNode":
         result = inputs[0] ?? false;
         break;
 
       case "splitterNode": {
         const inputSignal = inputs[0] ?? false;
+        const outputCount = typeof node.data.outputCount === 'number' ? node.data.outputCount : 2;
         
         updatedNodes[nodeIndex] = {
           ...updatedNodes[nodeIndex],
           data: {
             ...updatedNodes[nodeIndex].data,
-            outputs: [inputSignal, inputSignal],
+            outputs: Array(outputCount).fill(inputSignal),
             state: inputSignal,
             inputs: inputs,
           },
         };
 
-        if (sourceHandle === "output-1") return inputSignal;
         return inputSignal;
       }
 

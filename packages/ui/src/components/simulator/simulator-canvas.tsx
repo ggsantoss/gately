@@ -35,7 +35,7 @@ export function SimulatorCanvas() {
     setEdges,
   );
 
-  // Handler para atualizar propriedades do nó
+  // Handler to update node properties
   const handleUpdateNode = useCallback((nodeId: string, data: Partial<GateNodeProps['data']>) => {
     setNodes((nds) =>
       nds.map((node) =>
@@ -52,13 +52,13 @@ export function SimulatorCanvas() {
     );
   }, [setNodes]);
 
-  // Wrapper do onNodeClick para selecionar o nó
+  // Wrapper for onNodeClick to also set the selected node state
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node<GateNodeProps>) => {
     setSelectedNode(node);
     onNodeClick(node);
   }, [onNodeClick]);
 
-  // Auto-save current circuit when nodes or edges change
+  // Save the current nodes and edges to the file system whenever they change
   useEffect(() => {
     if (currentFileId && (nodes.length > 0 || edges.length > 0)) {
       const saveTimeout = setTimeout(() => {

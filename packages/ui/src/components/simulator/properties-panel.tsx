@@ -1,7 +1,7 @@
 "use client";
 
 import type { Node } from "@xyflow/react";
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { GateNodeProps } from "@gately/core/types";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -16,15 +16,55 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ selectedNode, onUpdateNode }: PropertiesPanelProps) {
-  const handlePropertyChange = useCallback((key: string, value: any) => {
+  const [localData, setLocalData] = useState<Partial<GateNodeProps['data']>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedNode) {
+      setLocalData(selectedNode.data);
+      setError(null);
+    }
+  }, [selectedNode]);
+
+  const handlePropertyChange = useCallback((key: string, value: any, prop?: any) => {
     if (!selectedNode) return;
     
-    const updatedData = {
-      ...selectedNode.data,
-      [key]: value
-    };
-    
-    onUpdateNode(selectedNode.id, updatedData);
+    if (prop?.type === 'number' || prop?.type === 'range') {
+      if (isNaN(value) || value === '') {
+        setError(`Please enter a valid number`);
+        return;
+      }
+
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      
+      if (prop.min !== undefined && numValue < prop.min) {
+        setError(`Minimum value is ${prop.min}`);
+        return;
+      }
+      
+      if (prop.max !== undefined && numValue > prop.max) {
+        setError(`Maximum value is ${prop.max}`);
+        return;
+      }
+      
+      setError(null);
+      
+      const updatedData: Partial<GateNodeProps['data']> = {
+        ...selectedNode.data,
+        [key]: numValue
+      };
+      
+      setLocalData(updatedData);
+      onUpdateNode(selectedNode.id, updatedData);
+    } else {
+      const updatedData: Partial<GateNodeProps['data']> = {
+        ...selectedNode.data,
+        [key]: value
+      };
+      
+      setLocalData(updatedData);
+      onUpdateNode(selectedNode.id, updatedData);
+    }
   }, [selectedNode, onUpdateNode]);
 
   if (!selectedNode) {
@@ -53,6 +93,8 @@ export function PropertiesPanel({ selectedNode, onUpdateNode }: PropertiesPanelP
     );
   }
 
+  const currentData = Object.keys(localData).length > 0 ? localData : selectedNode.data;
+
   return (
     <div className="w-72 bg-card border-l border-border p-4 overflow-y-auto h-full">
       <div className="mb-4">
@@ -60,24 +102,17 @@ export function PropertiesPanel({ selectedNode, onUpdateNode }: PropertiesPanelP
         <p className="text-xs text-muted-foreground">{selectedNode.type}</p>
       </div>
 
+      {error && (
+        <div className="mb-3 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-3">
         {config.properties.map((prop) => {
-          const value = selectedNode.data[prop.key] ?? prop.defaultValue;
+          const value = currentData[prop.key as keyof typeof currentData] ?? prop.defaultValue;
 
           switch (prop.type) {
-            case 'text':
-              return (
-                <div key={prop.key} className="space-y-1">
-                  <Label className="text-xs font-medium">{prop.label}</Label>
-                  <Input
-                    type="text"
-                    value={value || ''}
-                    onChange={(e) => handlePropertyChange(prop.key, e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              );
-
             case 'number':
               return (
                 <div key={prop.key} className="space-y-1">
@@ -88,9 +123,49 @@ export function PropertiesPanel({ selectedNode, onUpdateNode }: PropertiesPanelP
                     max={prop.max}
                     step={prop.step}
                     value={value ?? prop.defaultValue}
-                    onChange={(e) => handlePropertyChange(prop.key, parseFloat(e.target.value))}
-                    className="h-8 text-sm"
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      if (newValue === '') {
+                        setError(null);
+                        setLocalData({
+                          ...currentData,
+                          [prop.key]: ''
+                        });
+                        return;
+                      }
+                      const numValue = parseFloat(newValue);
+                      if (!isNaN(numValue)) {
+                        handlePropertyChange(prop.key, numValue, prop);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        const fallback = currentData[prop.key as keyof typeof currentData] ?? prop.defaultValue;
+                        handlePropertyChange(prop.key, fallback, prop);
+                        return;
+                      }
+                      const numValue = parseFloat(val);
+                      if (!isNaN(numValue)) {
+                        let finalValue = numValue;
+                        if (prop.min !== undefined && finalValue < prop.min) {
+                          finalValue = prop.min;
+                          setError(`Value adjusted to minimum (${prop.min})`);
+                        }
+                        if (prop.max !== undefined && finalValue > prop.max) {
+                          finalValue = prop.max;
+                          setError(`Value adjusted to maximum (${prop.max})`);
+                        }
+                        handlePropertyChange(prop.key, finalValue, prop);
+                      }
+                    }}
+                    className={`h-8 text-sm ${error ? 'border-destructive' : ''}`}
                   />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Min: {prop.min}</span>
+                    <span>Current: {value ?? prop.defaultValue}</span>
+                    <span>Max: {prop.max}</span>
+                  </div>
                 </div>
               );
 
@@ -99,15 +174,34 @@ export function PropertiesPanel({ selectedNode, onUpdateNode }: PropertiesPanelP
                 <div key={prop.key} className="space-y-1">
                   <div className="flex justify-between">
                     <Label className="text-xs font-medium">{prop.label}</Label>
-                    <span className="text-xs text-muted-foreground">{value}</span>
+                    <span className="text-xs text-muted-foreground">{value ?? prop.defaultValue}</span>
                   </div>
                   <Slider
                     min={prop.min}
                     max={prop.max}
                     step={prop.step}
                     value={[value ?? prop.defaultValue]}
-                    onValueChange={([val]) => handlePropertyChange(prop.key, val)}
+                    onValueChange={([val]) => {
+                      handlePropertyChange(prop.key, val, prop);
+                    }}
                     className="py-2"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{prop.min}</span>
+                    <span>{prop.max}</span>
+                  </div>
+                </div>
+              );
+
+            case 'text':
+              return (
+                <div key={prop.key} className="space-y-1">
+                  <Label className="text-xs font-medium">{prop.label}</Label>
+                  <Input
+                    type="text"
+                    value={value || ''}
+                    onChange={(e) => handlePropertyChange(prop.key, e.target.value)}
+                    className="h-8 text-sm"
                   />
                 </div>
               );

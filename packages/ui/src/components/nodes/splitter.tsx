@@ -1,6 +1,7 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect } from "react";
+import { useUpdateNodeInternals } from "@xyflow/react";
 import { type GateGeometry, GateRenderer, H, type LogicGateProps, W } from "./base/index";
 
 function getSplitterGeometry(): GateGeometry {
@@ -21,6 +22,12 @@ function getSplitterGeometry(): GateGeometry {
 export const SplitterNode = memo(({ id, data, isConnectable }: LogicGateProps) => {
   const geometry = getSplitterGeometry();
   const outputCount = data.outputCount || 2;
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Update node internals whenever the outputCount changes to ensure the node is rendered correctly
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [outputCount, id, updateNodeInternals]);
 
   return (
     <GateRenderer
